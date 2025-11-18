@@ -1,0 +1,53 @@
+name: "Go Test Overview Doc (from JUnit XML)"
+description: "Generate a QA-friendly TESTS.md from Go tests by parsing JUnit XML (from gotestsum or go-junit-report)."
+author: "Your Name"
+branding:
+  color: blue
+  icon: book
+
+inputs:
+  output_file:
+    description: "Path to write the generated Markdown."
+    required: false
+    default: "TESTS.md"
+  working_directory:
+    description: "Directory to run from (monorepo support)."
+    required: false
+    default: "."
+  junit_xml_path:
+    description: "Path to JUnit XML produced by a prior step (required)."
+    required: true
+  go_version:
+    description: "Go version for building the generator (no tests executed)."
+    required: false
+    default: "stable"
+  failure_snippet_chars:
+    description: "Max chars of failure message to include (0 = hide)."
+    required: false
+    default: "300"
+
+outputs:
+  output_file:
+    description: "The path to the generated Markdown."
+    value: ${{ inputs.output_file }}
+
+runs:
+  using: "composite"
+  steps:
+    - name: Setup Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: ${{ inputs.go_version }}
+        check-latest: true
+        cache: true
+
+    - name: Generate QA Test Overview (from JUnit XML)
+      shell: bash
+      working-directory: ${{ inputs.working_directory }}
+      run: |
+        test -s "${{ inputs.junit_xml_path }}" || { echo "JUnit XML not found: ${{ inputs.junit_xml_path }}"; exit 1; }
+        go run "${{ github.action_path }}/cmd/testdoc" \
+          -o "${{ inputs.output_file }}" \
+          -junit "${{ inputs.junit_xml_path }}" \
+          -fail-snippet "${{ inputs.failure_snippet_chars }}"
+        echo "Wrote ${{ inputs.output_file }}"

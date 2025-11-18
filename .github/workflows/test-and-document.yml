@@ -1,0 +1,71 @@
+name: Test and Generate Documentation
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  test-and-document:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: '1.21'
+    
+    - name: Cache Go modules
+      uses: actions/cache@v3
+      with:
+        path: ~/go/pkg/mod
+        key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+        restore-keys: |
+          ${{ runner.os }}-go-
+    
+    - name: Install dependencies
+      run: |
+        go mod download
+        cd cmd/testdoc && go mod download
+    
+    - name: Run tests with JUnit output
+      run: |
+        # Install gotestsum for JUnit XML output
+        go install gotest.tools/gotestsum@latest
+        
+        # Run tests and generate JUnit XML
+        gotestsum --junitfile junit.xml --format testname -- -v ./...
+    
+    - name: Build documentation generator
+      run: |
+        cd cmd/testdoc
+        go build -o ../../testdoc .
+    
+    - name: Generate test documentation
+      run: |
+        ./testdoc -source ./cmd/testdoc -o TESTS.md -junit junit.xml
+    
+    - name: Upload test results
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: test-results
+        path: |
+          junit.xml
+          TESTS.md
+    
+    - name: Commit documentation changes
+      if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+      run: |
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+        git add TESTS.md
+        if git diff --cached --quiet; then
+          echo "No changes to commit"
+        else
+          git commit -m "Update test documentation [skip ci]"
+          git push
+        fi
