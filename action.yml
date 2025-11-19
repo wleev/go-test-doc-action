@@ -1,6 +1,6 @@
 name: "Go Test Overview Doc (from JUnit XML)"
 description: "Generate a QA-friendly TESTS.md from Go tests by parsing JUnit XML (from gotestsum or go-junit-report)."
-author: "Your Name"
+author: "wleev"
 branding:
   color: blue
   icon: book
@@ -45,7 +45,6 @@ runs:
       shell: bash
       working-directory: ${{ inputs.working_directory }}
       run: |
-        test -s "${{ inputs.junit_xml_path }}" || { echo "JUnit XML not found: ${{ inputs.junit_xml_path }}"; exit 1; }
         go run "${{ github.action_path }}/cmd/testdoc" \
           -o "${{ inputs.output_file }}" \
           -junit "${{ inputs.junit_xml_path }}" \
